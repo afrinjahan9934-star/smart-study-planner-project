@@ -77,7 +77,7 @@ smart-study-planner-spring-boot/
 ### 1. Clone the repository
 
 ```bash
-git clone [https://github.com/afrinjahan9934-star/smart-study-planner.git]
+git clone [https://github.com/afrinjahan9934-star/smart-study-planner-project.git]
 ```
 
 ### 2. Open the project
