@@ -83,7 +83,7 @@ git clone [https://github.com/afrinjahan9934-star/smart-study-planner-project.gi
 ### 2. Open the project
 
 ```bash
-cd smart-study-planner
+cd smart-study-planner-project
 ```
 
 ### 3. Run the Spring Boot application
