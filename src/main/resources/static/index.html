@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Study Planner</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f3f6fc;
+      color: #243047;
+      font-family: Arial, sans-serif;
+    }
+    main { max-width: 900px; margin: auto; }
+    h1 { color: #3157a4; margin-bottom: 6px; }
+    .muted { color: #68758a; }
+    .panel, .stat, li {
+      background: white;
+      border-radius: 12px;
+      padding: 18px;
+      margin: 14px 0;
+      box-shadow: 0 2px 8px #1e355510;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .stat strong { display: block; font-size: 28px; color: #3157a4; }
+    label { display: block; margin-top: 10px; font-weight: 600; }
+    input, select, button {
+      width: 100%;
+      padding: 11px;
+      margin-top: 6px;
+      border: 1px solid #d3dbea;
+      border-radius: 7px;
+      font-size: 15px;
+    }
+    button {
+      border: 0;
+      background: #3157a4;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover { background: #244584; }
+    .filters { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+    ul { list-style: none; padding: 0; }
+    li { display: flex; align-items: center; gap: 12px; }
+    li input[type="checkbox"] { width: auto; }
+    .task-info { flex: 1; }
+    .task-info small { display: block; margin-top: 5px; color: #68758a; }
+    li.done .task-title { text-decoration: line-through; color: #788397; }
+    .delete { width: auto; background: #b43d48; padding: 9px 12px; }
+    .empty { color: #68758a; text-align: center; }
+    @media (max-width: 600px) {
+      body { padding: 14px; }
+      .stats { grid-template-columns: 1fr; }
+      li { flex-wrap: wrap; }
+      .delete { margin-left: auto; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Smart Study Planner</h1>
+  <p class="muted">Plan your study tasks, track progress, and stay on schedule.</p>
+
+  <section class="stats" aria-label="Study progress">
+    <div class="stat"><span class="muted">Total tasks</span><strong id="total">0</strong></div>
+    <div class="stat"><span class="muted">Completed</span><strong id="completed">0</strong></div>
+    <div class="stat"><span class="muted">Progress</span><strong id="progress">0%</strong></div>
+  </section>
+
+  <section class="panel">
+    <h2>Add a study task</h2>
+    <form id="task-form">
+      <label for="task">Study task</label>
+      <input id="task" placeholder="e.g. Revise Chapter 2" required>
+
+      <label for="subject">Subject</label>
+      <input id="subject" placeholder="e.g. Mathematics" required>
+
+      <label for="date">Study date</label>
+      <input id="date" type="date" required>
+
+      <label for="priority">Priority</label>
+      <select id="priority">
+        <option>Normal</option>
+        <option>High</option>
+        <option>Low</option>
+      </select>
+
+      <button type="submit">Add task</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>My study tasks</h2>
+    <div class="filters">
+      <input id="search" placeholder="Search task or subject">
+      <select id="filter">
+        <option value="all">All tasks</option>
+        <option value="pending">Pending</option>
+        <option value="done">Completed</option>
+      </select>
+    </div>
+    <ul id="task-list"></ul>
+  </section>
+</main>
+
+<script>
+  const form = document.getElementById("task-form");
+  const taskInput = document.getElementById("task");
+  const subjectInput = document.getElementById("subject");
+  const dateInput = document.getElementById("date");
+  const priorityInput = document.getElementById("priority");
+  const taskList = document.getElementById("task-list");
+  const searchInput = document.getElementById("search");
+  const filterInput = document.getElementById("filter");
+
+  let tasks = [];
+  try {
+    const saved = JSON.parse(localStorage.getItem("studyTasks") || "[]");
+    if (Array.isArray(saved)) tasks = saved;
+  } catch {
+    tasks = [];
+  }
+
+  function saveTasks() {
+    localStorage.setItem("studyTasks", JSON.stringify(tasks));
+  }
+
+  function renderTasks() {
+    const completedCount = tasks.filter(task => task.done).length;
+    document.getElementById("total").textContent = tasks.length;
+    document.getElementById("completed").textContent = completedCount;
+    document.getElementById("progress").textContent =
+      tasks.length ? Math.round(completedCount / tasks.length * 100) + "%" : "0%";
+
+    const query = searchInput.value.trim().toLowerCase();
+    const filter = filterInput.value;
+
+    const visibleTasks = tasks
+      .map((task, index) => ({ task, index }))
+      .filter(({ task }) => {
+        const matchesSearch =
+          task.title.toLowerCase().includes(query) ||
+          task.subject.toLowerCase().includes(query);
+        const matchesFilter =
+          filter === "all" ||
+          (filter === "done" && task.done) ||
+          (filter === "pending" && !task.done);
+        return matchesSearch && matchesFilter;
+      });
+
+    taskList.replaceChildren();
+
+    if (!visibleTasks.length) {
+      const message = document.createElement("li");
+      message.className = "empty";
+      message.textContent = tasks.length ? "No matching tasks." : "No tasks yet—add your first study task above.";
+      taskList.appendChild(message);
+      return;
+    }
+
+    visibleTasks.forEach(({ task, index }) => {
+      const item = document.createElement("li");
+      if (task.done) item.classList.add("done");
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = task.done;
+      checkbox.setAttribute("aria-label", "Mark task complete");
+      checkbox.addEventListener("change", () => {
+        tasks[index].done = checkbox.checked;
+        saveTasks();
+        renderTasks();
+      });
+
+      const info = document.createElement("div");
+      info.className = "task-info";
+
+      const title = document.createElement("span");
+      title.className = "task-title";
+      title.textContent = task.title;
+
+      const details = document.createElement("small");
+      details.textContent = `${task.subject} • ${task.date} • Priority: ${task.priority || "Normal"}`;
+
+      info.append(title, details);
+
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "delete";
+      removeButton.textContent = "Delete";
+      removeButton.addEventListener("click", () => {
+        tasks.splice(index, 1);
+        saveTasks();
+        renderTasks();
+      });
+
+      item.append(checkbox, info, removeButton);
+      taskList.appendChild(item);
+    });
+  }
+
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+
+    tasks.push({
+      title: taskInput.value.trim(),
+      subject: subjectInput.value.trim(),
+      date: dateInput.value,
+      priority: priorityInput.value,
+      done: false
+    });
+
+    saveTasks();
+    renderTasks();
+    form.reset();
+  });
+
+  searchInput.addEventListener("input", renderTasks);
+  filterInput.addEventListener("change", renderTasks);
+  renderTasks();
+</script>
+</body>
+</html>
